@@ -9,7 +9,7 @@ type Props = {
   isTitleError: boolean;
 };
 
-export const Error: React.FC<Props> = ({
+export const ErrorComponent: React.FC<Props> = ({
   isError,
   isAddError,
   isDeleteError,

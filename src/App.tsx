@@ -13,7 +13,7 @@ import { Todo } from './types/Todo';
 import { Header } from './Header';
 import { TodoElem } from './TodoElem';
 import { Footer } from './Footer';
-import { Error } from './Error';
+import { ErrorComponent } from './Error';
 import { TodoItem } from './TodoItem';
 
 export const App: React.FC = () => {
@@ -68,7 +68,7 @@ export const App: React.FC = () => {
         setIsLoadError(true);
         hideError(setIsLoadError);
 
-        throw new Error();
+        throw new Error('not working');
       })
       .then(result => {
         if (selectedLink === 'completed') {
@@ -288,7 +288,7 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      <Error
+      <ErrorComponent
         isError={isError}
         isAddError={isAddError}
         isDeleteError={isDeleteError}
