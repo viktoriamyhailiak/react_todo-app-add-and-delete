@@ -256,7 +256,7 @@ export const App: React.FC = () => {
           isLoading={isLoading}
         />
 
-        {serverTodosCount.current > 0 && (
+        {(todos.length > 0 || tempTodo) && (
           <section className="todoapp__main" data-cy="TodoList">
             {todos.map(todo => (
               <TodoElem
