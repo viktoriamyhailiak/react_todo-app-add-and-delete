@@ -172,7 +172,6 @@ export const App: React.FC = () => {
     setIsDeleteError(false);
     setIsLoading(true);
     setIsUpdateError(false);
-    setIsLoading(true);
 
     const completed = todos.filter(todo => todo.completed);
     const deletePromises = completed.map(todo => deleteTodo(todo.id));
