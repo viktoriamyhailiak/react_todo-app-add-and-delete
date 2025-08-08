@@ -42,11 +42,19 @@ export const App: React.FC = () => {
     setTimeout(() => setError(false), 3000);
   }
 
+  function defineAllErrors(x: boolean) {
+    setIsAddError(x);
+    setIsTitleError(x);
+    setIsLoadError(x);
+    setIsDeleteError(x);
+    setIsUpdateError(x);
+  }
+
   useEffect(() => {
     if (!isLoading && titleField.current) {
       titleField.current.focus();
     }
-  }, [isLoading, isTitleError]);
+  }, [isLoading]);
 
   useEffect(() => {
     if (editingId !== null) {
@@ -64,12 +72,6 @@ export const App: React.FC = () => {
     setIsLoading(true);
 
     getTodos()
-      .catch(() => {
-        setIsLoadError(true);
-        hideError(setIsLoadError);
-
-        throw new Error('not working');
-      })
       .then(result => {
         if (selectedLink === 'completed') {
           setTodos(result.filter(x => x.completed === true));
@@ -81,27 +83,28 @@ export const App: React.FC = () => {
 
         serverTodosCount.current = result.length;
       })
+      .catch(() => {
+        setIsLoadError(true);
+        hideError(setIsLoadError);
+      })
       .finally(() => setIsLoading(false));
   }, [selectedLink]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    setIsAddError(false);
-    setIsTitleError(false);
-    setIsLoadError(false);
-    setIsDeleteError(false);
-    setIsUpdateError(false);
+    e.preventDefault();
+    defineAllErrors(false);
+    setIsLoading(true);
 
     const maxId = Math.max(...todos.map(todo => todo.id)) + 1;
     const trimmed = value.trim();
 
-    e.preventDefault();
-    setIsLoading(true);
     setSavingID(maxId);
 
     if (!trimmed) {
       setIsTitleError(true);
       hideError(setIsTitleError);
       setIsLoading(false);
+      setSavingID(null);
 
       return;
     }
@@ -139,25 +142,19 @@ export const App: React.FC = () => {
   }
 
   function handleDelete(todoId: number) {
-    setIsAddError(false);
-    setIsTitleError(false);
-    setIsLoadError(false);
-    setIsDeleteError(false);
-    setSavingID(todoId);
     setIsLoading(true);
-    setIsUpdateError(false);
+    defineAllErrors(false);
+    setSavingID(todoId);
 
     deleteTodo(todoId)
-      .catch(() => {
-        setIsDeleteError(true);
-        hideError(setIsDeleteError);
-
-        throw new Error();
-      })
       .then(() => {
         setTodos(currentTodos =>
           currentTodos.filter(todo => todo.id !== todoId),
         );
+      })
+      .catch(() => {
+        setIsDeleteError(true);
+        hideError(setIsDeleteError);
       })
       .finally(() => {
         setSavingID(null);
@@ -166,29 +163,24 @@ export const App: React.FC = () => {
   }
 
   function deleteAllCompleted() {
-    setIsAddError(false);
-    setIsTitleError(false);
-    setIsLoadError(false);
-    setIsDeleteError(false);
     setIsLoading(true);
-    setIsUpdateError(false);
+    defineAllErrors(false);
 
     const completed = todos.filter(todo => todo.completed);
-    const deletePromises = completed.map(todo => deleteTodo(todo.id));
+    const deletePromises = completed.map(todo => {
+      deleteTodo(todo.id)
+        .then(() => {
+          setTodos(currentTodos => currentTodos.filter(t => t.id !== todo.id));
+        })
+        .catch(() => {
+          setIsDeleteError(true);
+          hideError(setIsDeleteError);
+        });
+    });
 
-    Promise.all(deletePromises)
-      .catch(() => {
-        setIsDeleteError(true);
-        hideError(setIsDeleteError);
-
-        return;
-      })
-      .then(() => {
-        setTodos(currentTodos => currentTodos.filter(todo => !todo.completed));
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    Promise.allSettled(deletePromises).finally(() => {
+      setIsLoading(false);
+    });
   }
 
   function handleUpdateTodo(updatedTodo: Todo) {
@@ -277,7 +269,7 @@ export const App: React.FC = () => {
           </section>
         )}
 
-        {serverTodosCount.current > 0 && (
+        {todos.length > 0 && (
           <Footer
             setSelectedLink={setSelectedLink}
             selectedLink={selectedLink}
