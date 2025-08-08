@@ -15,6 +15,7 @@ import { TodoElem } from './TodoElem';
 import { Footer } from './Footer';
 import { ErrorComponent } from './Error';
 import { TodoItem } from './TodoItem';
+import { CSSTransition, TransitionGroup } from 'react-transition-group';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -250,22 +251,30 @@ export const App: React.FC = () => {
 
         {(todos.length > 0 || tempTodo) && (
           <section className="todoapp__main" data-cy="TodoList">
-            {todos.map(todo => (
-              <TodoElem
-                key={todo.id}
-                todo={todo}
-                handleInputDoubleClick={handleInputDoubleClick}
-                editingId={editingId}
-                titleForEditing={titleForEditing}
-                setTitleForEditing={setTitleForEditing}
-                handleUpdateTodo={handleUpdateTodo}
-                editInputRef={editInputRef}
-                handleDelete={handleDelete}
-                savingId={savingId}
-              />
-            ))}
+            <TransitionGroup>
+              {todos.map(todo => (
+                <CSSTransition key={todo.id} timeout={300} classNames="item">
+                  <TodoElem
+                    key={todo.id}
+                    todo={todo}
+                    handleInputDoubleClick={handleInputDoubleClick}
+                    editingId={editingId}
+                    titleForEditing={titleForEditing}
+                    setTitleForEditing={setTitleForEditing}
+                    handleUpdateTodo={handleUpdateTodo}
+                    editInputRef={editInputRef}
+                    handleDelete={handleDelete}
+                    savingId={savingId}
+                  />
+                </CSSTransition>
+              ))}
 
-            {tempTodo && <TodoItem tempTodo={tempTodo} />}
+              {tempTodo && (
+                <CSSTransition key={0} timeout={300} classNames="temp-item">
+                  <TodoItem tempTodo={tempTodo} />{' '}
+                </CSSTransition>
+              )}
+            </TransitionGroup>
           </section>
         )}
 
