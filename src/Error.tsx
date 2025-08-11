@@ -1,28 +1,16 @@
 import classNames from 'classnames';
 
 type Props = {
-  isError: boolean;
-  isAddError: boolean;
-  isDeleteError: boolean;
-  isLoadError: boolean;
-  isUpdateError: boolean;
-  isTitleError: boolean;
+  error: string;
 };
 
-export const ErrorComponent: React.FC<Props> = ({
-  isError,
-  isAddError,
-  isDeleteError,
-  isLoadError,
-  isUpdateError,
-  isTitleError,
-}) => {
+export const ErrorComponent: React.FC<Props> = ({ error }) => {
   return (
     <div
       data-cy="ErrorNotification"
       className={classNames(
         'notification is-danger is-light has-text-weight-normal',
-        { hidden: !isError },
+        { hidden: error.length === 0 },
       )}
     >
       <button
@@ -37,17 +25,7 @@ export const ErrorComponent: React.FC<Props> = ({
           }
         }}
       />
-      {isLoadError
-        ? 'Unable to load todos'
-        : isTitleError
-          ? 'Title should not be empty'
-          : isAddError
-            ? 'Unable to add a todo'
-            : isDeleteError
-              ? 'Unable to delete a todo'
-              : isUpdateError
-                ? 'Unable to update a todo'
-                : ''}
+      {error.length > 0 ? error : ''}
     </div>
   );
 };

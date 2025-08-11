@@ -8,6 +8,7 @@ type Props = {
   setValue: React.Dispatch<React.SetStateAction<string>>;
   titleField: React.RefObject<HTMLInputElement>;
   isLoading: boolean;
+  toggleAll: () => void;
 };
 
 export const Header: React.FC<Props> = ({
@@ -17,23 +18,22 @@ export const Header: React.FC<Props> = ({
   setValue,
   titleField,
   isLoading,
+  toggleAll,
 }) => {
   return (
     <header className="todoapp__header">
-      <button
-        type="button"
-        className={classNames('todoapp__toggle-all', {
-          active: !todos.find(x => x.completed === false),
-        })}
-        data-cy="ToggleAllButton"
-      />
+      {todos.length > 0 && (
+        <button
+          type="button"
+          className={classNames('todoapp__toggle-all', {
+            active: todos.every(x => x.completed === true),
+          })}
+          data-cy="ToggleAllButton"
+          onClick={() => toggleAll()}
+        />
+      )}
 
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          handleSubmit(e);
-        }}
-      >
+      <form onSubmit={e => handleSubmit(e)}>
         <input
           data-cy="NewTodoField"
           type="text"

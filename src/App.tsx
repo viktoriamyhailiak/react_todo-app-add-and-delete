@@ -14,42 +14,39 @@ import { Header } from './Header';
 import { TodoElem } from './TodoElem';
 import { Footer } from './Footer';
 import { ErrorComponent } from './Error';
-import { TodoItem } from './TodoItem';
-import { CSSTransition, TransitionGroup } from 'react-transition-group';
+import { TransitionGroup } from 'react-transition-group';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [visibleTodos, setVisibleTodos] = useState<Todo[]>(todos);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [value, setValue] = useState<string>('');
   const [selectedLink, setSelectedLink] = useState<string>('all');
-  const [savingId, setSavingID] = useState<number | null>(null);
-
-  const [isLoadError, setIsLoadError] = useState<boolean>(false);
-  const [isTitleError, setIsTitleError] = useState<boolean>(false);
-  const [isAddError, setIsAddError] = useState<boolean>(false);
-  const [isDeleteError, setIsDeleteError] = useState<boolean>(false);
-  const [isUpdateError, setIsUpdateError] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [titleForEditing, setTitleForEditing] = useState<string>('');
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
+  const [error, setError] = useState<string>('');
+  const [savingIs, setSavingIds] = useState<number[]>([]);
 
   const titleField = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const serverTodosCount = useRef<number>(0);
-  const isError =
-    isAddError || isDeleteError || isLoadError || isTitleError || isUpdateError;
 
-  function hideError(setError: React.Dispatch<React.SetStateAction<boolean>>) {
-    setTimeout(() => setError(false), 3000);
+  function hideError() {
+    setTimeout(() => setError(''), 3000);
   }
 
-  function defineAllErrors(x: boolean) {
-    setIsAddError(x);
-    setIsTitleError(x);
-    setIsLoadError(x);
-    setIsDeleteError(x);
-    setIsUpdateError(x);
-  }
+  useEffect(() => {
+    setIsLoading(true);
+    getTodos()
+      .then(result => {
+        setTodos(result);
+      })
+      .catch(() => {
+        setError('Unable to load todos');
+        hideError();
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!isLoading && titleField.current) {
@@ -67,45 +64,37 @@ export const App: React.FC = () => {
 
       editInputRef.current?.focus();
     }
-  }, [editingId, todos]);
+  }, [editingId, todos, isLoading]);
+
+  function applyFilter(filter: string, source: Todo[]) {
+    if (filter === 'completed') {
+      setVisibleTodos(source.filter(x => x.completed));
+    } else if (filter === 'active') {
+      setVisibleTodos(source.filter(x => !x.completed));
+    } else {
+      setVisibleTodos(source);
+    }
+  }
 
   useEffect(() => {
-    setIsLoading(true);
-
-    getTodos()
-      .then(result => {
-        if (selectedLink === 'completed') {
-          setTodos(result.filter(x => x.completed === true));
-        } else if (selectedLink === 'active') {
-          setTodos(result.filter(x => x.completed === false));
-        } else {
-          setTodos(result);
-        }
-
-        serverTodosCount.current = result.length;
-      })
-      .catch(() => {
-        setIsLoadError(true);
-        hideError(setIsLoadError);
-      })
-      .finally(() => setIsLoading(false));
-  }, [selectedLink]);
+    applyFilter(selectedLink, todos);
+  }, [selectedLink, todos]);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    defineAllErrors(false);
+    setError('');
     setIsLoading(true);
 
     const maxId = Math.max(...todos.map(todo => todo.id)) + 1;
     const trimmed = value.trim();
 
-    setSavingID(maxId);
+    setSavingIds([maxId]);
 
     if (!trimmed) {
-      setIsTitleError(true);
-      hideError(setIsTitleError);
+      setError('Title should not be empty');
+      hideError();
       setIsLoading(false);
-      setSavingID(null);
+      setSavingIds([]);
 
       return;
     }
@@ -126,109 +115,178 @@ export const App: React.FC = () => {
 
     postTodo(data)
       .then((newTodo: Todo) => {
-        setTodos([...todos, newTodo]);
-        setSavingID(newTodo.id);
+        setTodos(prevTodos => [...prevTodos, newTodo]);
+        setSavingIds([newTodo.id]);
         setValue('');
       })
       .catch(() => {
-        setIsAddError(true);
-        hideError(setIsAddError);
+        setError('Unable to add a todo');
+        hideError();
         setValue(value);
       })
       .finally(() => {
         setIsLoading(false);
-        setSavingID(null);
+        setSavingIds([]);
         setTempTodo(null);
       });
   }
 
   function handleDelete(todoId: number) {
     setIsLoading(true);
-    defineAllErrors(false);
-    setSavingID(todoId);
+    setError('');
+    setSavingIds([todoId]);
 
     deleteTodo(todoId)
       .then(() => {
         setTodos(currentTodos =>
           currentTodos.filter(todo => todo.id !== todoId),
         );
+        setEditingId(null);
       })
       .catch(() => {
-        setIsDeleteError(true);
-        hideError(setIsDeleteError);
+        setError('Unable to delete a todo');
+        hideError();
       })
       .finally(() => {
-        setSavingID(null);
+        setSavingIds([]);
         setIsLoading(false);
       });
   }
 
   function deleteAllCompleted() {
     setIsLoading(true);
-    defineAllErrors(false);
+    setError('');
 
     const completed = todos.filter(todo => todo.completed);
+
+    setSavingIds(completed.map(elem => elem.id));
+
     const deletePromises = completed.map(todo => {
       deleteTodo(todo.id)
         .then(() => {
           setTodos(currentTodos => currentTodos.filter(t => t.id !== todo.id));
         })
         .catch(() => {
-          setIsDeleteError(true);
-          hideError(setIsDeleteError);
+          setError('Unable to delete a todo');
+          hideError();
         });
     });
 
     Promise.allSettled(deletePromises).finally(() => {
       setIsLoading(false);
+      setSavingIds([]);
     });
   }
 
   function handleUpdateTodo(updatedTodo: Todo) {
-    setIsAddError(false);
-    setIsTitleError(false);
-    setIsLoadError(false);
-    setIsDeleteError(false);
     setIsLoading(true);
-    setIsUpdateError(false);
+    setEditingId(updatedTodo.id);
+    setError('');
     const trimmedTitle = titleForEditing.trim();
 
-    if (!trimmedTitle) {
-      setIsUpdateError(true);
-      hideError(setIsUpdateError);
-      setEditingId(null);
+    setSavingIds([updatedTodo.id]);
 
-      return;
-    }
-
-    setIsLoading(true);
-    setSavingID(updatedTodo.id);
-
-    updateTodo(updatedTodo)
+    updateTodo({ ...updatedTodo, title: trimmedTitle })
       .then(() => {
         setTodos(currentTodos =>
           currentTodos.map(todo =>
             todo.id === updatedTodo.id
-              ? { ...todo, title: trimmedTitle }
+              ? { ...updatedTodo, title: trimmedTitle }
               : todo,
+          ),
+        );
+        setEditingId(null);
+        setTitleForEditing('');
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setError('Unable to update a todo');
+        hideError();
+      })
+      .finally(() => {
+        setSavingIds([]);
+      });
+  }
+
+  const onChecked = (todo: Todo) => {
+    setIsLoading(true);
+    setError('');
+    setSavingIds([todo.id]);
+
+    updateTodo({ ...todo, completed: !todo.completed })
+      .then(() => {
+        setTodos(currentTodos =>
+          currentTodos.map(t =>
+            t.id === todo.id ? { ...t, completed: !todo.completed } : t,
           ),
         );
       })
       .catch(() => {
-        setIsUpdateError(true);
-        hideError(setIsUpdateError);
+        setError('Unable to update a todo');
+        hideError();
       })
       .finally(() => {
-        setEditingId(null);
-        setTitleForEditing('');
         setIsLoading(false);
-        setSavingID(null);
+        setSavingIds([]);
       });
-  }
+  };
 
   function handleInputDoubleClick(elem: Todo) {
     setEditingId(elem.id);
     setTitleForEditing(elem.title);
+  }
+
+  function toggleAll() {
+    setIsLoading(true);
+    setError('');
+
+    const notCompleted = todos.filter(x => x.completed === false);
+
+    if (notCompleted.length > 0) {
+      setSavingIds(notCompleted.map(elem => elem.id));
+
+      const updatePromises = notCompleted.map(todo => {
+        return updateTodo({ ...todo, completed: true })
+          .then(() => {
+            setTodos(currentTodos =>
+              currentTodos.map(t =>
+                t.id === todo.id ? { ...t, completed: true } : t,
+              ),
+            );
+          })
+          .catch(() => {
+            setError('Unable to update a todo');
+            hideError();
+          });
+      });
+
+      Promise.allSettled(updatePromises).finally(() => {
+        setIsLoading(false);
+        setSavingIds([]);
+      });
+    } else {
+      setSavingIds(todos.map(elem => elem.id));
+
+      const updatePromises = todos.map(todo => {
+        return updateTodo({ ...todo, completed: !todo.completed })
+          .then(() => {
+            setTodos(currentTodos =>
+              currentTodos.map(t =>
+                t.id === todo.id ? { ...t, completed: !todo.completed } : t,
+              ),
+            );
+          })
+          .catch(() => {
+            setError('Unable to update a todo');
+            hideError();
+          });
+      });
+
+      Promise.allSettled(updatePromises).finally(() => {
+        setIsLoading(false);
+        setSavingIds([]);
+      });
+    }
   }
 
   if (!USER_ID) {
@@ -247,33 +305,27 @@ export const App: React.FC = () => {
           setValue={setValue}
           titleField={titleField}
           isLoading={isLoading}
+          toggleAll={toggleAll}
         />
 
         {(todos.length > 0 || tempTodo) && (
           <section className="todoapp__main" data-cy="TodoList">
             <TransitionGroup>
-              {todos.map(todo => (
-                <CSSTransition key={todo.id} timeout={300} classNames="item">
-                  <TodoElem
-                    key={todo.id}
-                    todo={todo}
-                    handleInputDoubleClick={handleInputDoubleClick}
-                    editingId={editingId}
-                    titleForEditing={titleForEditing}
-                    setTitleForEditing={setTitleForEditing}
-                    handleUpdateTodo={handleUpdateTodo}
-                    editInputRef={editInputRef}
-                    handleDelete={handleDelete}
-                    savingId={savingId}
-                  />
-                </CSSTransition>
-              ))}
-
-              {tempTodo && (
-                <CSSTransition key={0} timeout={300} classNames="temp-item">
-                  <TodoItem tempTodo={tempTodo} />{' '}
-                </CSSTransition>
-              )}
+              <TodoElem
+                visibleTodos={visibleTodos}
+                tempTodo={tempTodo}
+                handleInputDoubleClick={handleInputDoubleClick}
+                onChecked={onChecked}
+                titleForEditing={titleForEditing}
+                editingId={editingId}
+                handleUpdateTodo={handleUpdateTodo}
+                setTitleForEditing={setTitleForEditing}
+                editInputRef={editInputRef}
+                handleDelete={handleDelete}
+                setEditingId={setEditingId}
+                savingIds={savingIs}
+                error={error}
+              />
             </TransitionGroup>
           </section>
         )}
@@ -288,14 +340,7 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      <ErrorComponent
-        isError={isError}
-        isAddError={isAddError}
-        isDeleteError={isDeleteError}
-        isLoadError={isLoadError}
-        isUpdateError={isUpdateError}
-        isTitleError={isTitleError}
-      />
+      <ErrorComponent error={error} />
     </div>
   );
 };
